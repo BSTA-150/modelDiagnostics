@@ -16,6 +16,9 @@ execute:
   message: false
 ---
 
+[Link to qmd (quarto markdown)](https://github.com/BSTA-150/modelDiagnostics/blob/main/index.qmd)
+
+
 ```{r setup, include=FALSE}
 # Load libraries
 library(survival)
@@ -219,8 +222,6 @@ ggcoxzph(cox.zph(fit))
 
 ## Thank You
 
-**Questions?**
+[← Return to Course Materials](https://bsta-150.github.io/course/)
 
-Eric Delmelle  
-Department of Biostatistics and Health Data Science  
-Lehigh University
+[Link to qmd (quarto markdown)](https://github.com/BSTA-150/modelDiagnostics/blob/main/index.qmd)
