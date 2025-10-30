@@ -1,0 +1,226 @@
+---
+title: "Model Diagnostics in the Cox Proportional Hazards Model"
+author: "Eric Delmelle | Lehigh University"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: false
+    theme: flatly
+    link-citations: true
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+```{r setup, include=FALSE}
+# Load libraries
+library(survival)
+library(survminer)
+library(TH.data)
+```
+
+## Overview
+
+This document reviews model evaluation and diagnostics for the Cox Proportional Hazards model:
+
+* The Cox Proportional Hazards Model
+* Key Hypothesis Tests
+* Model Performance (C-index)
+* Diagnostics & Assumptions
+* Case Studies: GBSG2 and lung datasets
+
+## The Cox Model
+
+The Cox model is defined as:
+
+$$
+h(t|X) = h_0(t)\exp(\beta_1 X_1 + \beta_2 X_2 + \ldots)
+$$
+
+where:
+
+* $h_0(t)$ is the baseline hazard (unspecified → semi-parametric)
+* The exponential term ensures hazards are positive and multiplicative
+* $\exp(\beta_j)$ = Hazard Ratio (HR) for a one-unit change in $X_j$
+
+## Log-Rank Test
+
+**Purpose:** Compare survival curves between groups (no covariates).
+
+* Non-parametric test based on Kaplan–Meier estimates
+* $H_0$: no difference in survival between groups
+* Sensitive when hazard ratios are roughly constant over time
+
+```{r}
+data(lung)
+
+fit_lr <- survdiff(Surv(time, status) ~ sex, data = lung)
+fit_lr
+```
+
+## Wald, Score & Likelihood Ratio Tests
+
+| Test | Used for | Notes |
+|------|----------|-------|
+| **Wald** | Tests $H_0: \beta_j = 0$ after fitting | Uses $\hat{\beta}/SE(\hat{\beta})$ |
+| **Score (Rao)** | Tests variable before fitting | More stable with small samples |
+| **Likelihood Ratio (LRT)** | Compares nested models | Preferred for model comparison |
+
+All three are asymptotically equivalent for large $n$.
+
+## Example: Wald & LRT in Cox
+
+```{r}
+fit_lung <- coxph(Surv(time, status) ~ age + sex + ph.ecog, data = lung)
+summary(fit_lung)
+```
+
+Note the individual Wald z-tests and the global Likelihood Ratio Test at the bottom.
+
+## Model Discrimination: Concordance Index (C-index)
+
+**Question:** Does the model rank individuals correctly by risk?
+
+* $C = 0.5$ → random (like a coin toss)
+* $C = 1.0$ → perfect discrimination
+* Acceptable: $0.6 < C < 0.8$
+* Excellent: $C > 0.8$
+
+```{r}
+summary(fit_lung)$concordance
+```
+
+⚠️ The C-index measures ranking, not calibration.
+
+## Checking the Proportional Hazards (PH) Assumption
+
+**PH assumption:** The hazard ratio between two individuals is constant over time.
+
+$$
+\frac{h_i(t)}{h_j(t)} = e^{\beta(X_i - X_j)} \text{ does not depend on } t
+$$
+
+If violated → the effect of a covariate changes with time.
+
+## Diagnostics: Schoenfeld Residuals
+
+* Computed for each covariate at each event time
+* Plot residuals vs. time
+* If a trend is observed → PH assumption violated
+
+**Steps:**
+
+1. Plot residuals vs. time
+2. Look for systematic trends
+3. Perform a formal hypothesis test
+
+```{r}
+#| fig-height: 5
+#| fig-width: 8
+
+cox.zph(fit_lung)
+ggcoxzph(cox.zph(fit_lung))
+```
+
+## Martingale Residuals
+
+Used to check functional form of covariates (e.g., nonlinearity).
+
+```{r}
+#| fig-height: 4
+#| fig-width: 7
+
+ggcoxfunctional(Surv(time, status) ~ age, data = lung)
+```
+
+A systematic curve suggests a transformation (log or spline) is needed.
+
+## Case Study 1: GBSG2 (PH Holds)
+
+```{r}
+data(GBSG2)
+fit_gbsg <- coxph(Surv(time, cens) ~ age + horTh + tsize + pnodes, data = GBSG2)
+cox.zph(fit_gbsg)
+```
+
+Residuals roughly flat → PH holds.
+
+```{r}
+#| fig-height: 6
+#| fig-width: 8
+
+ggcoxzph(cox.zph(fit_gbsg))
+```
+
+## Case Study 2: Lung Dataset
+
+```{r}
+#| fig-height: 5.5
+#| fig-width: 8
+
+ggcoxzph(cox.zph(fit_lung))
+```
+
+PH assumption holds for this model (all p-values > 0.05).
+
+## Visual Check: Log(-log(S(t))) Curves
+
+Parallel lines → PH plausible.
+
+```{r}
+#| fig-height: 5
+#| fig-width: 7
+
+ggsurvplot(
+  survfit(Surv(time, status) ~ sex, data = lung),
+  fun = "cloglog",
+  legend.labs = c("Male", "Female"),
+  title = "Log–Log Survival Plot"
+)
+```
+
+## When PH Is Violated
+
+**Possible solutions:**
+
+* Stratify on the violating variable (`strata(var)`)
+* Add time–covariate interaction ($X \times f(t)$)
+* Use an alternative model:
+  - Parametric (Weibull, exponential, etc.)
+  - Additive hazards or Aalen's model
+
+## Summary
+
+✅ Log-rank → compares curves (unadjusted)
+
+✅ Wald, Score, LRT → evaluate covariates within Cox
+
+✅ C-index → measures discrimination
+
+✅ Schoenfeld & Martingale → check assumptions and nonlinearity
+
+✅ PH assumption = foundation for interpreting HRs
+
+## Practice Exercise
+
+Try these diagnostics on the `pbc` dataset:
+
+```{r}
+#| eval: false
+
+fit <- coxph(Surv(time, status) ~ covariate1 + covariate2, data = your_data)
+cox.zph(fit)
+ggcoxzph(cox.zph(fit))
+```
+
+## Thank You
+
+**Questions?**
+
+Eric Delmelle  
+Department of Biostatistics and Health Data Science  
+Lehigh University
